@@ -1,5 +1,10 @@
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Serializable;
+import java.io.StringBufferInputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -7,6 +12,7 @@ import java.util.StringTokenizer;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
@@ -21,10 +27,13 @@ import org.apache.hadoop.mapred.TextOutputFormat;
 
 
 public class InvertedIndex {
-	public static class Posting implements Serializable {
-		private static final long serialVersionUID = 1L;
+	public static class Posting implements Writable {
+		
 		private String docId;
 		private int tf;
+		public Posting(){
+			
+		}
 		public Posting(String docId, int tf) {
 			this.docId = docId;
 			this.tf = tf;
@@ -43,8 +52,51 @@ public class InvertedIndex {
 		}
 		@Override
 		public String toString() {
-			return "P(" + docId + "," + tf  + ")";
+			return "(" + docId + " " + tf  + ")";
 		}
+		@Override
+		public void readFields(DataInput in) throws IOException {
+			String line = in.readLine();
+			String[] val = line.substring(1, line.length()-1).split(" ");
+			this.docId = val[0];
+			this.tf = Integer.parseInt(val[1]);
+		}
+		@Override
+		public void write(DataOutput out) throws IOException {
+			out.writeChars("(" + docId + " " + tf + ")" );
+		}
+	}
+	
+	public static class LinkedListWritable<Item extends Writable> extends LinkedList<Item> implements Writable{
+
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		public void readFields(DataInput in) throws IOException {
+			String line = in.readLine();
+			String[] val = line.substring(1,line.length()-1).split(",");
+			for (String v : val) {
+				Item i = (Item)new Object();
+				i.readFields(new DataInputStream(new StringBufferInputStream(v)));
+				this.add(i);
+			}
+		}
+
+		@Override
+		public void write(DataOutput out) throws IOException {
+			out.writeChar('[');
+			int ctr = 0;
+			for (Item i : this) {
+				i.write(out);
+				if (ctr < this.size() - 1) {
+					out.writeChar(',');
+				}
+				ctr += 1;
+			}
+			out.writeChar(']');
+
+		}
+		
 	}
 	
 	public static class Map extends MapReduceBase implements
@@ -61,11 +113,11 @@ public class InvertedIndex {
 	}
 	
 	public static class Combine extends MapReduceBase implements
-	Reducer<Text, Posting, Text, LinkedList<Posting>> {
+	Reducer<Text, Posting, Text, LinkedListWritable<Posting>> {
 		private HashMap<String, Posting> docMap = new HashMap<String, Posting>();
 		public void reduce(Text key, Iterator<Posting> val, 
-				OutputCollector<Text, LinkedList<Posting>> output, Reporter reporter) throws IOException {
-			LinkedList<Posting> postingList = new LinkedList<Posting>();
+				OutputCollector<Text, LinkedListWritable<Posting>> output, Reporter reporter) throws IOException {
+			LinkedListWritable<Posting> postingList = new LinkedListWritable<Posting>();
 			while(val.hasNext()) {
 				Posting newPost = val.next();
 				Posting post = docMap.get(newPost.getDocId());
@@ -82,10 +134,10 @@ public class InvertedIndex {
 	}
 
 	public static class Reduce extends MapReduceBase implements
-	Reducer<Text, LinkedList<Posting>, Text, LinkedList<Posting>> {
-		public void reduce(Text key, Iterator<LinkedList<Posting>> val,
-		OutputCollector<Text, LinkedList<Posting>> output, Reporter reporter) throws IOException{
-			LinkedList<Posting> finalList = new LinkedList<Posting>();
+	Reducer<Text, LinkedListWritable<Posting>, Text, LinkedListWritable<Posting>> {
+		public void reduce(Text key, Iterator<LinkedListWritable<Posting>> val,
+		OutputCollector<Text, LinkedListWritable<Posting>> output, Reporter reporter) throws IOException{
+			LinkedListWritable<Posting> finalList = new LinkedListWritable<Posting>();
 			while(val.hasNext()) {
 				LinkedList<Posting> newPostList = val.next();
 				finalList.addAll(newPostList);
@@ -100,7 +152,7 @@ public class InvertedIndex {
 		
 		conf.setJobName("InvertedIndex");
 		conf.setOutputKeyClass(Text.class);
-		conf.setOutputValueClass(LinkedList.class);
+		conf.setOutputValueClass(LinkedListWritable.class);
 		
 		conf.setMapperClass(Map.class);
 		conf.setCombinerClass(Combine.class);
