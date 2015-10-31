@@ -148,6 +148,8 @@ public class InvertedIndex {
 	
 	public static void main(String args[]) throws IOException, ClassNotFoundException, InterruptedException {
 		Job job = Job.getInstance(new Configuration());
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(Posting.class);	
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(LinkedListWritable.class);
 		
