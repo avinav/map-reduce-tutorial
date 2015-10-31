@@ -60,7 +60,7 @@ public class InvertedIndex {
 			String line = in.readLine();
 			String[] val = line.substring(1, line.length()-1).split(" ");
 			this.docId = val[0];
-			Matcher matcher = pattern.matcher(val[0]);
+			Matcher matcher = pattern.matcher(val[1]);
 			if (matcher.find()) 
 			this.tf = Integer.parseInt(matcher.group(0));
 		}
@@ -145,7 +145,7 @@ public class InvertedIndex {
 				Context context) throws IOException, InterruptedException{
 			LinkedListWritable<Posting> finalList = new LinkedListWritable<Posting>();
 			while(val.hasNext()) {
-				LinkedList<Posting> newPostList = val.next();
+				LinkedListWritable<Posting> newPostList = val.next();
 				finalList.addAll(newPostList);
 			}
 			context.write(key, finalList);
