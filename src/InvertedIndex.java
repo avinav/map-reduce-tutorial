@@ -1,29 +1,26 @@
+import java.io.ByteArrayInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.Serializable;
-import java.io.StringBufferInputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.mapred.TextOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Job;
 
 
 public class InvertedIndex {
@@ -77,7 +74,7 @@ public class InvertedIndex {
 			String[] val = line.substring(1,line.length()-1).split(",");
 			for (String v : val) {
 				Item i = (Item)new Object();
-				i.readFields(new DataInputStream(new StringBufferInputStream(v)));
+				i.readFields(new DataInputStream(new ByteArrayInputStream(v.getBytes())));
 				this.add(i);
 			}
 		}
@@ -99,24 +96,26 @@ public class InvertedIndex {
 		
 	}
 	
-	public static class Map extends MapReduceBase implements
-	Mapper<Text, Text, Text, Posting> {
+	public static class Map extends Mapper<LongWritable, Text, Text, Posting> {
 		private Text word = new Text();
-		public void map(Text key, Text val, OutputCollector<Text, Posting> output,
-				Reporter reporter) throws IOException {
+		
+		public void map(LongWritable key, Text val, Context context) throws IOException, InterruptedException {
 			StringTokenizer tokenizer = new StringTokenizer(val.toString());
 			while(tokenizer.hasMoreTokens()) {
 				word.set(tokenizer.nextToken());
-				output.collect(word, new Posting(key.toString(), 1));
+				context.write(word, new Posting(getFileName(context), 1));
 			}	
+		}
+		public String getFileName(Context context) {
+			FileSplit fs = (FileSplit) context.getInputSplit();
+		    return fs.getPath().getName();
 		}
 	}
 	
-	public static class Combine extends MapReduceBase implements
-	Reducer<Text, Posting, Text, LinkedListWritable<Posting>> {
+	public static class Combine extends Reducer<Text, Posting, Text, LinkedListWritable<Posting>> {
 		private HashMap<String, Posting> docMap = new HashMap<String, Posting>();
-		public void reduce(Text key, Iterator<Posting> val, 
-				OutputCollector<Text, LinkedListWritable<Posting>> output, Reporter reporter) throws IOException {
+		
+		public void reduce(Text key, Iterator<Posting> val, Context context) throws IOException, InterruptedException {
 			LinkedListWritable<Posting> postingList = new LinkedListWritable<Posting>();
 			while(val.hasNext()) {
 				Posting newPost = val.next();
@@ -129,41 +128,39 @@ public class InvertedIndex {
 					postingList.add(newPost);
 				}
 			}
-			output.collect(key, postingList);
+			context.write(key, postingList);
 		}
 	}
 
-	public static class Reduce extends MapReduceBase implements
-	Reducer<Text, LinkedListWritable<Posting>, Text, LinkedListWritable<Posting>> {
+	public static class Reduce extends Reducer<Text, LinkedListWritable<Posting>, Text, LinkedListWritable<Posting>> {
+		
 		public void reduce(Text key, Iterator<LinkedListWritable<Posting>> val,
-		OutputCollector<Text, LinkedListWritable<Posting>> output, Reporter reporter) throws IOException{
+				Context context) throws IOException, InterruptedException{
 			LinkedListWritable<Posting> finalList = new LinkedListWritable<Posting>();
 			while(val.hasNext()) {
 				LinkedList<Posting> newPostList = val.next();
 				finalList.addAll(newPostList);
 			}
-			output.collect(key, finalList);
+			context.write(key, finalList);
 		}
 		
 	}
 	
-	public static void main(String args[]) throws IOException {
-	JobConf conf = new JobConf(InvertedIndex.class);
+	public static void main(String args[]) throws IOException, ClassNotFoundException, InterruptedException {
+		Job job = Job.getInstance(new Configuration());
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(LinkedListWritable.class);
 		
-		conf.setJobName("InvertedIndex");
-		conf.setOutputKeyClass(Text.class);
-		conf.setOutputValueClass(LinkedListWritable.class);
+		job.setMapperClass(Map.class);
+		job.setCombinerClass(Combine.class);
+		job.setReducerClass(Reduce.class);
 		
-		conf.setMapperClass(Map.class);
-		conf.setCombinerClass(Combine.class);
-		conf.setReducerClass(Reduce.class);
+		job.setInputFormatClass(TextInputFormat.class);
+		job.setOutputFormatClass(TextOutputFormat.class);
 		
-		conf.setInputFormat(TextInputFormat.class);
-		conf.setOutputFormat(TextOutputFormat.class);
-		
-		FileInputFormat.setInputPaths(conf, new Path(args[0]));
-		FileOutputFormat.setOutputPath(conf, new Path(args[1]));
-		
-		JobClient.runJob(conf);
+		FileInputFormat.setInputPaths(job, new Path(args[0]));
+		FileOutputFormat.setOutputPath(job, new Path(args[1]));
+		job.setJarByClass(InvertedIndex.class);
+		job.waitForCompletion(true);
 	}
 }
