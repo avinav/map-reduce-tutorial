@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -24,6 +26,8 @@ import org.apache.hadoop.mapreduce.Job;
 
 
 public class InvertedIndex {
+	private static final Pattern pattern = Pattern.compile("\\d+");
+	
 	public static class Posting implements Writable {
 		
 		private String docId;
@@ -56,7 +60,9 @@ public class InvertedIndex {
 			String line = in.readLine();
 			String[] val = line.substring(1, line.length()-1).split(" ");
 			this.docId = val[0];
-			this.tf = Integer.parseInt(val[1]);
+			Matcher matcher = pattern.matcher(val[0]);
+			if (matcher.find()) 
+			this.tf = Integer.parseInt(matcher.group(0));
 		}
 		@Override
 		public void write(DataOutput out) throws IOException {
@@ -95,6 +101,7 @@ public class InvertedIndex {
 		}
 		
 	}
+	
 	
 	public static class Map extends Mapper<LongWritable, Text, Text, Posting> {
 		private Text word = new Text();
@@ -166,3 +173,7 @@ public class InvertedIndex {
 		job.waitForCompletion(true);
 	}
 }
+
+
+
+	
