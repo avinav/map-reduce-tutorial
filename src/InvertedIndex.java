@@ -70,7 +70,7 @@ public class InvertedIndex {
 		}
 	}
 	
-	public static class LinkedListWritable<Item extends Writable> extends LinkedList<Item> implements Writable{
+	public static class LinkedListWritable<Item extends Writable> extends LinkedList<Posting> implements Writable{
 
 		private static final long serialVersionUID = 1L;
 
@@ -78,33 +78,44 @@ public class InvertedIndex {
 		public void readFields(DataInput in) throws IOException {
 			String line = in.readLine();
 			String[] val = line.substring(1,line.length()-1).split(",");
-			for (String v : val) {
-				Item i = (Item) new Object();
-				i.readFields(new DataInputStream(new ByteArrayInputStream(v.getBytes())));
-				this.add(i);
+//			1st way
+//			for (String v : val) {
+//				Item i = (Item) new Object();
+//				i.readFields(new DataInputStream(new ByteArrayInputStream(v.getBytes())));
+//				this.add(i);
+//			}
+//			2nd way
+			for (String v: val) {
+				Posting p = (Posting) new Object();
+				String[] pval = v.substring(1, v.length()-1).split(" ");
+				p.docId = val[0];
+				Matcher matcher = pattern.matcher(val[1]);
+				if (matcher.find()) 
+				p.tf = Integer.parseInt(matcher.group(0));
+				this.add(p);
 			}
 		}
 
 		@Override
 		public void write(DataOutput out) throws IOException {
 			// 1st way
-			out.writeChars("[");
-			int ctr = 0;
-			for (Item i : this) {
-				i.write(out);
-				if (ctr < this.size() - 1) {
-					out.writeChar(',');
-				}
-				ctr += 1;
-			}
-			out.writeChars("]");
+//			out.writeChars("[");
+//			int ctr = 0;
+//			for (Item i : this) {
+//				i.write(out);
+//				if (ctr < this.size() - 1) {
+//					out.writeChar(',');
+//				}
+//				ctr += 1;
+//			}
+//			out.writeChars("]");
 			 
 			// 2nd way
-			/*int ctr = 0;
+			int ctr = 0;
 			StringBuilder sb = new StringBuilder();
 			sb.append("[");
-			for (Item i : this) {
-				Posting post = (Posting) i;
+			for (Posting post : this) {
+//				Posting post = (Posting) i;
 				sb.append("(" + post.docId);
 				sb.append(" " + post.tf + ")");
 				
@@ -114,7 +125,7 @@ public class InvertedIndex {
 				ctr += 1;
 			}
 			sb.append("]");
-			out.writeChars(sb.toString());*/
+			out.writeChars(sb.toString());
 			//3rd way
 			
 		}
