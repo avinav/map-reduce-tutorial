@@ -87,7 +87,8 @@ public class InvertedIndex {
 
 		@Override
 		public void write(DataOutput out) throws IOException {
-			/*out.writeChar('[');
+			// 1st way
+			out.writeChar('[');
 			int ctr = 0;
 			for (Item i : this) {
 				i.write(out);
@@ -97,8 +98,9 @@ public class InvertedIndex {
 				ctr += 1;
 			}
 			out.writeChar(']');
-			 */
-			int ctr = 0;
+			 
+			// 2nd way
+			/*int ctr = 0;
 			StringBuilder sb = new StringBuilder();
 			sb.append("[");
 			for (Item i : this) {
@@ -112,7 +114,9 @@ public class InvertedIndex {
 				ctr += 1;
 			}
 			sb.append("]");
-			out.writeChars(sb.toString());
+			out.writeChars(sb.toString());*/
+			//3rd way
+			
 		}
 		
 	}
@@ -176,7 +180,7 @@ public class InvertedIndex {
 		job.setOutputValueClass(LinkedListWritable.class);
 		
 		job.setMapperClass(Map.class);
-		job.setCombinerClass(Combine.class);
+//		job.setCombinerClass(Combine.class);
 		job.setReducerClass(Combine.class);
 		
 		job.setInputFormatClass(TextInputFormat.class);
