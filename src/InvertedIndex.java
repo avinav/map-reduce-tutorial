@@ -162,7 +162,7 @@ public class InvertedIndex {
 		
 		job.setMapperClass(Map.class);
 		job.setCombinerClass(Combine.class);
-		job.setReducerClass(Reduce.class);
+		job.setReducerClass(Combine.class);
 		
 		job.setInputFormatClass(TextInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
