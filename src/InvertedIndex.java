@@ -88,7 +88,7 @@ public class InvertedIndex {
 		@Override
 		public void write(DataOutput out) throws IOException {
 			// 1st way
-			out.writeChar('[');
+			out.writeChars("[");
 			int ctr = 0;
 			for (Item i : this) {
 				i.write(out);
@@ -97,7 +97,7 @@ public class InvertedIndex {
 				}
 				ctr += 1;
 			}
-			out.writeChar(']');
+			out.writeChars("]");
 			 
 			// 2nd way
 			/*int ctr = 0;
