@@ -79,7 +79,7 @@ public class InvertedIndex {
 			String line = in.readLine();
 			String[] val = line.substring(1,line.length()-1).split(",");
 			for (String v : val) {
-				Item i = (Item)new Object();
+				Item i = (Item) new Object();
 				i.readFields(new DataInputStream(new ByteArrayInputStream(v.getBytes())));
 				this.add(i);
 			}
@@ -87,7 +87,7 @@ public class InvertedIndex {
 
 		@Override
 		public void write(DataOutput out) throws IOException {
-			out.writeChar('[');
+			/*out.writeChar('[');
 			int ctr = 0;
 			for (Item i : this) {
 				i.write(out);
@@ -97,7 +97,22 @@ public class InvertedIndex {
 				ctr += 1;
 			}
 			out.writeChar(']');
-
+			 */
+			int ctr = 0;
+			StringBuilder sb = new StringBuilder();
+			sb.append("[");
+			for (Item i : this) {
+				Posting post = (Posting) i;
+				sb.append("(" + post.docId);
+				sb.append(" " + post.tf + ")");
+				
+				if (ctr < this.size() - 1) {
+					sb.append(",");
+				}
+				ctr += 1;
+			}
+			sb.append("]");
+			out.writeChars(sb.toString());
 		}
 		
 	}
