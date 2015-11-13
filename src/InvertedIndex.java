@@ -11,6 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
@@ -57,16 +58,23 @@ public class InvertedIndex {
 		}
 		@Override
 		public void readFields(DataInput in) throws IOException {
-			String line = in.readLine();
-			String[] val = line.substring(1, line.length()-1).split(" ");
-			this.docId = val[0];
-			Matcher matcher = pattern.matcher(val[1]);
-			if (matcher.find()) 
-			this.tf = Integer.parseInt(matcher.group(0));
+//			String line = in.readLine();
+//			String[] val = line.substring(1, line.length()-1).split(" ");
+//			this.docId = val[0];
+//			Matcher matcher = pattern.matcher(val[1]);
+//			if (matcher.find()) 
+//			this.tf = Integer.parseInt(matcher.group(0));
+			Text str = new Text();
+			str.readFields(in);
+			docId = str.toString();
+			IntWritable i = new IntWritable();
+			i.readFields(in);
+			tf = i.get();
 		}
 		@Override
 		public void write(DataOutput out) throws IOException {
-			out.writeChars("(" + docId + " " + tf + ")" );
+			new Text(docId).write(out);
+			new IntWritable(tf).write(out);
 		}
 	}
 	
@@ -76,8 +84,8 @@ public class InvertedIndex {
 
 		@Override
 		public void readFields(DataInput in) throws IOException {
-			String line = in.readLine();
-			String[] val = line.substring(1,line.length()-1).split(",");
+//			String line = in.readLine();
+//			String[] val = line.substring(1,line.length()-1).split(",");
 //			1st way
 //			for (String v : val) {
 //				Item i = (Item) new Object();
@@ -85,14 +93,24 @@ public class InvertedIndex {
 //				this.add(i);
 //			}
 //			2nd way
-			for (String v: val) {
-				Posting p = (Posting) new Object();
-				String[] pval = v.substring(1, v.length()-1).split(" ");
-				p.docId = val[0];
-				Matcher matcher = pattern.matcher(val[1]);
-				if (matcher.find()) 
-				p.tf = Integer.parseInt(matcher.group(0));
-				this.add(p);
+//			for (String v: val) {
+//				Posting p = (Posting) new Object();
+//				String[] pval = v.substring(1, v.length()-1).split(" ");
+//				p.docId = val[0];
+//				Matcher matcher = pattern.matcher(val[1]);
+//				if (matcher.find()) 
+//				p.tf = Integer.parseInt(matcher.group(0));
+//				this.add(p);
+//			}
+			// 3rd way
+			int s = in.readInt();
+			for (int i = 0; i < s; i++) {
+				Text docId = new Text();
+				docId.readFields(in);
+				IntWritable tf = new IntWritable();
+				tf.readFields(in);
+				Posting post = new Posting(docId.toString(), tf.get());
+				this.add(post);
 			}
 		}
 
@@ -111,11 +129,34 @@ public class InvertedIndex {
 //			out.writeChars("]");
 			 
 			// 2nd way
+//			int ctr = 0;
+//			StringBuilder sb = new StringBuilder();
+//			sb.append("[");
+//			for (Posting post : this) {
+////				Posting post = (Posting) i;
+//				sb.append("(" + post.docId);
+//				sb.append(" " + post.tf + ")");
+//				
+//				if (ctr < this.size() - 1) {
+//					sb.append(",");
+//				}
+//				ctr += 1;
+//			}
+//			sb.append("]");
+//			out.writeChars(sb.toString());
+			//3rd way
+			new IntWritable(this.size()).write(out);
+			for (Posting post: this) {
+				post.write(out);
+			}
+		}
+		
+		@Override
+		public String toString() {
 			int ctr = 0;
 			StringBuilder sb = new StringBuilder();
 			sb.append("[");
 			for (Posting post : this) {
-//				Posting post = (Posting) i;
 				sb.append("(" + post.docId);
 				sb.append(" " + post.tf + ")");
 				
@@ -125,9 +166,7 @@ public class InvertedIndex {
 				ctr += 1;
 			}
 			sb.append("]");
-			out.writeChars(sb.toString());
-			//3rd way
-			
+			return sb.toString();
 		}
 		
 	}
