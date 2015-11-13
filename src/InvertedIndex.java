@@ -157,9 +157,7 @@ public class InvertedIndex {
 			StringBuilder sb = new StringBuilder();
 			sb.append("[");
 			for (Posting post : this) {
-				sb.append("(" + post.docId);
-				sb.append(" " + post.tf + ")");
-				
+				sb.append(post.toString());
 				if (ctr < this.size() - 1) {
 					sb.append(",");
 				}
@@ -195,14 +193,15 @@ public class InvertedIndex {
 			LinkedListWritable<Posting> postingList = new LinkedListWritable<Posting>();
 			while(val.hasNext()) {
 				Posting newPost = val.next();
-				Posting post = docMap.get(newPost.getDocId());
+				/*Posting post = docMap.get(newPost.getDocId());
 				if( post != null) {
 					post.setTf(post.getTf() + newPost.getTf());
 				}
 				else {
 					docMap.put(newPost.getDocId(),newPost);
 					postingList.add(newPost);
-				}
+				}*/
+				postingList.add(newPost);
 			}
 			context.write(key, postingList);
 		}
